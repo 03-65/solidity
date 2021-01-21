@@ -110,6 +110,9 @@ public:
 	/// @returns true if this predicate represents a function summary.
 	bool isFunctionSummary() const;
 
+	/// @returns true if this predicate represents a function block.
+	bool isFunctionBlock() const;
+
 	/// @returns true if this predicate represents an internal function call.
 	bool isInternalCall() const;
 

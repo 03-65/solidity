@@ -153,6 +153,11 @@ bool Predicate::isFunctionSummary() const
 	return m_type == PredicateType::FunctionSummary;
 }
 
+bool Predicate::isFunctionBlock() const
+{
+	return m_type == PredicateType::FunctionBlock;
+}
+
 bool Predicate::isInternalCall() const
 {
 	return m_type == PredicateType::InternalCall;

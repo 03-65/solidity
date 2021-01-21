@@ -1114,7 +1114,11 @@ Predicate const* CHC::createConstructorBlock(ContractDefinition const& _contract
 
 void CHC::createErrorBlock()
 {
-	m_errorPredicate = createSymbolicBlock(arity0FunctionSort(), "error_target_" + to_string(m_context.newUniqueId()), PredicateType::Error);
+	m_errorPredicate = createSymbolicBlock(
+		arity0FunctionSort(),
+		"error_target_" + to_string(m_context.newUniqueId()),
+		PredicateType::Error
+	);
 	m_interface->registerRelation(m_errorPredicate->functor());
 }
 
@@ -1360,13 +1364,18 @@ void CHC::verificationTargetEncountered(
 	auto previousError = errorFlag().currentValue();
 	errorFlag().increaseIndex();
 
-	// create an error edge to the summary
-	solAssert(m_errorDest, "");
+	Predicate const* localBlock = m_currentFunction ?
+		createBlock(&m_currentFunction->body(), PredicateType::FunctionBlock) :
+		createConstructorBlock(*m_currentContract, "local_error");
+
+	auto pred = predicate(*localBlock);
 	connectBlocks(
 		m_currentBlock,
-		predicate(*m_errorDest),
+		pred,
 		_errorCondition && errorFlag().currentValue() == errorId
 	);
+	solAssert(m_errorDest, "");
+	addRule(smtutil::Expression::implies(pred, predicate(*m_errorDest)), pred.name);
 
 	m_context.addAssertion(errorFlag().currentValue() == previousError);
 }
@@ -1564,6 +1573,34 @@ optional<string> CHC::generateCounterexample(CHCSolverInterface::CexGraph const&
 			first = false;
 			/// Generate counterexample message local to the failed target.
 			localState = formatVariableModel(*stateVars, stateValues, ", ") + "\n";
+			/*
+			Predicate const* localError = nullptr;
+			solidity::util::BreadthFirstSearch<unsigned>{{summaryId}}.run(
+				[&](auto _node, auto&& _addChild) {
+					auto pred = nodePred(_node);
+					auto args = nodeArgs(_node);
+					if (pred->isFunctionBlock())
+					{
+						bigint error(args.at(0));
+						if (error > 0)
+						{
+							localError = pred;
+							abort();
+						}
+					}
+					for (auto _child: _graph.edges.at(_node))
+						_addChild(_child);
+				}
+			);
+			if (localError)
+			{
+				auto const& localErrorFun = dynamic_cast<FunctionDefinition const&>(
+					*dynamic_cast<Block const&>(*localError->programNode()).scope()
+				);
+				auto localValues = localErrorFun->
+			}
+			*/
+
 			if (auto calledFun = summaryPredicate->programFunction())
 			{
 				auto inValues = summaryPredicate->summaryPostInputValues(summaryArgs);
