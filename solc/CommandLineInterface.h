@@ -24,6 +24,7 @@
 
 #include <libsolidity/interface/CompilerStack.h>
 #include <libsolidity/interface/DebugSettings.h>
+#include <libsolidity/interface/FileReader.h>
 #include <libsolidity/interface/FileRemapper.h>
 #include <libyul/AssemblyStack.h>
 #include <liblangutil/EVMVersion.h>
@@ -113,10 +114,10 @@ private:
 
 	bool m_onlyLink = false;
 
+	FileReader m_fileReader;
+
 	/// Compiler arguments variable map
 	boost::program_options::variables_map m_args;
-	/// map of input files to source code strings
-	std::map<std::string, std::string> m_sourceCodes;
 	/// list of remappings
 	std::vector<FileRemapper::Remapping> m_remappings;
 	/// map of library names to addresses
