@@ -579,7 +579,7 @@ bool CommandLineInterface::readInputFilesAndConfigureRemappings()
 			auto eq = find(path.begin(), path.end(), '=');
 			if (eq != path.end())
 			{
-				if (auto r = CompilerStack::parseRemapping(path))
+				if (auto r = FileRemapper::parseRemapping(path))
 				{
 					m_remappings.emplace_back(std::move(*r));
 					path = string(eq + 1, path.end());
@@ -625,7 +625,7 @@ bool CommandLineInterface::readInputFilesAndConfigureRemappings()
 				m_sourceCodes[infile.generic_string()] = readFileAsString(infile.string());
 				path = boost::filesystem::canonical(infile).string();
 			}
-			m_allowedDirectories.push_back(boost::filesystem::path(path).remove_filename());
+			m_fileReader.allowDirectory(boost::filesystem::path(path).remove_filename());
 		}
 	if (addStdin)
 		m_sourceCodes[g_stdinFileName] = readStandardInput();

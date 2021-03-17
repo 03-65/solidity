@@ -131,6 +131,8 @@ set(sources
 	interface/CompilerStack.cpp
 	interface/CompilerStack.h
 	interface/DebugSettings.h
+	interface/FileRemapper.cpp
+	interface/FileRemapper.h
 	interface/GasEstimator.cpp
 	interface/GasEstimator.h
 	interface/Natspec.cpp
