@@ -16,11 +16,11 @@ contract c {
 // ====
 // compileViaYul: also
 // ----
-// storage: empty
+// storageEmpty -> 1
 // fill() -> 8
-// gas irOptimized: 181160
-// gas legacy: 165456
-// gas legacyOptimized: 164387
-// storage: nonempty
+// gas irOptimized: 124480
+// gas legacy: 121756
+// gas legacyOptimized: 120687
+// storageEmpty -> 0
 // clear() ->
-// storage: empty
+// storageEmpty -> 1

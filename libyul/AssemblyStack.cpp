@@ -25,9 +25,8 @@
 
 #include <libyul/AsmAnalysis.h>
 #include <libyul/AsmAnalysisInfo.h>
-#include <libyul/AsmParser.h>
 #include <libyul/AsmPrinter.h>
-#include <libyul/backends/evm/AsmCodeGen.h>
+#include <libyul/backends/evm/EthAssemblyAdapter.h>
 #include <libyul/backends/evm/EVMAssembly.h>
 #include <libyul/backends/evm/EVMCodeTransform.h>
 #include <libyul/backends/evm/EVMDialect.h>
@@ -44,6 +43,7 @@
 
 #include <libevmasm/Assembly.h>
 #include <liblangutil/Scanner.h>
+#include <optional>
 
 using namespace std;
 using namespace solidity;
@@ -185,7 +185,9 @@ void AssemblyStack::optimize(Object& _object, bool _isCreation)
 		meter.get(),
 		_object,
 		m_optimiserSettings.optimizeStackAllocation,
-		m_optimiserSettings.yulOptimiserSteps
+		m_optimiserSettings.yulOptimiserSteps,
+		_isCreation ? nullopt : make_optional(m_optimiserSettings.expectedExecutionsPerDeployment),
+		{}
 	);
 }
 

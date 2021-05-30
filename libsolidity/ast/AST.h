@@ -34,7 +34,6 @@
 #include <libsolutil/FixedHash.h>
 #include <libsolutil/LazyInit.h>
 
-#include <boost/noncopyable.hpp>
 #include <json/json.h>
 
 #include <memory>
@@ -62,27 +61,14 @@ class ASTConstVisitor;
  * It is possible to traverse all direct and indirect children of an AST node by calling
  * accept, providing an ASTVisitor.
  */
-class ASTNode: private boost::noncopyable
+class ASTNode
 {
 public:
-	struct CompareByID
-	{
-		using is_transparent = void;
+	/// Noncopyable.
+	ASTNode(ASTNode const&) = delete;
+	ASTNode& operator=(ASTNode const&) = delete;
 
-		bool operator()(ASTNode const* _lhs, ASTNode const* _rhs) const
-		{
-			return _lhs->id() < _rhs->id();
-		}
-		bool operator()(ASTNode const* _lhs, int64_t _rhs) const
-		{
-			return _lhs->id() < _rhs;
-		}
-		bool operator()(int64_t _lhs, ASTNode const* _rhs) const
-		{
-			return _lhs < _rhs->id();
-		}
-	};
-
+	using CompareByID = frontend::ASTCompareByID<ASTNode>;
 	using SourceLocation = langutil::SourceLocation;
 
 	explicit ASTNode(int64_t _id, SourceLocation _location);
@@ -111,6 +97,10 @@ public:
 	/// @returns a copy of the vector containing only the nodes which derive from T.
 	template <class T>
 	static std::vector<T const*> filteredNodes(std::vector<ASTPointer<ASTNode>> const& _nodes);
+
+	/// Extracts the referenced declaration from all nodes whose annotations support
+	/// `referencedDeclaration`.
+	static Declaration const* referencedDeclaration(Expression const& _expression);
 
 	/// Returns the source code location of this node.
 	SourceLocation const& location() const { return m_location; }
@@ -268,15 +258,15 @@ public:
 	/// @returns true if this is a declaration of a struct member.
 	bool isStructMember() const;
 	/// @returns true if this is a declaration of a parameter of an event.
-	bool isEventParameter() const;
+	bool isEventOrErrorParameter() const;
 
 	/// @returns the type of expressions referencing this declaration.
 	/// This can only be called once types of variable declarations have already been resolved.
-	virtual TypePointer type() const = 0;
+	virtual Type const* type() const = 0;
 
 	/// @returns the type for members of the containing contract type that refer to this declaration.
 	/// This can only be called once types of variable declarations have already been resolved.
-	virtual TypePointer typeViaContractName() const { return type(); }
+	virtual Type const* typeViaContractName() const { return type(); }
 
 	/// @param _internal false indicates external interface is concerned, true indicates internal interface is concerned.
 	/// @returns null when it is not accessible as a function.
@@ -366,7 +356,7 @@ public:
 	}
 	ImportAnnotation& annotation() const override;
 
-	TypePointer type() const override;
+	Type const* type() const override;
 
 private:
 	ASTPointer<ASTString> m_path;
@@ -509,6 +499,10 @@ public:
 	std::vector<FunctionDefinition const*> definedFunctions() const { return filteredNodes<FunctionDefinition>(m_subNodes); }
 	std::vector<EventDefinition const*> events() const { return filteredNodes<EventDefinition>(m_subNodes); }
 	std::vector<EventDefinition const*> const& interfaceEvents() const;
+	/// @returns all errors defined in this contract or any base contract
+	/// and all errors referenced during execution.
+	/// @param _requireCallGraph if false, do not fail if the call graph has not been computed yet.
+	std::vector<ErrorDefinition const*> interfaceErrors(bool _requireCallGraph = true) const;
 	bool isInterface() const { return m_contractKind == ContractKind::Interface; }
 	bool isLibrary() const { return m_contractKind == ContractKind::Library; }
 
@@ -539,7 +533,7 @@ public:
 
 	std::string fullyQualifiedName() const { return sourceUnitName() + ":" + name(); }
 
-	TypePointer type() const override;
+	Type const* type() const override;
 
 	ContractDefinitionAnnotation& annotation() const override;
 
@@ -658,7 +652,7 @@ public:
 
 	std::vector<ASTPointer<VariableDeclaration>> const& members() const { return m_members; }
 
-	TypePointer type() const override;
+	Type const* type() const override;
 
 	bool isVisibleInDerivedContracts() const override { return true; }
 	bool isVisibleViaContractTypeAccess() const override { return true; }
@@ -688,7 +682,7 @@ public:
 
 	std::vector<ASTPointer<EnumValue>> const& members() const { return m_members; }
 
-	TypePointer type() const override;
+	Type const* type() const override;
 
 	TypeDeclarationAnnotation& annotation() const override;
 
@@ -708,7 +702,7 @@ public:
 	void accept(ASTVisitor& _visitor) override;
 	void accept(ASTConstVisitor& _visitor) const override;
 
-	TypePointer type() const override;
+	Type const* type() const override;
 };
 
 /**
@@ -736,7 +730,7 @@ private:
 
 /**
  * Base class for all nodes that define function-like objects, i.e. FunctionDefinition,
- * EventDefinition and ModifierDefinition.
+ * EventDefinition, ErrorDefinition and ModifierDefinition.
  */
 class CallableDeclaration: public Declaration, public VariableScope
 {
@@ -883,8 +877,8 @@ public:
 	/// @returns the external identifier of this function (the hash of the signature) as a hex string.
 	std::string externalIdentifierHex() const;
 
-	TypePointer type() const override;
-	TypePointer typeViaContractName() const override;
+	Type const* type() const override;
+	Type const* typeViaContractName() const override;
 
 	/// @param _internal false indicates external interface is concerned, true indicates internal interface is concerned.
 	/// @returns null when it is not accessible as a function.
@@ -1010,7 +1004,7 @@ public:
 	/// @returns the external identifier of this variable (the hash of the signature) as a hex string (works only for public state variables).
 	std::string externalIdentifierHex() const;
 
-	TypePointer type() const override;
+	Type const* type() const override;
 
 	/// @param _internal false indicates external interface is concerned, true indicates internal interface is concerned.
 	/// @returns null when it is not accessible as a function.
@@ -1062,7 +1056,7 @@ public:
 
 	Block const& body() const { solAssert(m_body, ""); return *m_body; }
 
-	TypePointer type() const override;
+	Type const* type() const override;
 
 	Visibility defaultVisibility() const override { return Visibility::Internal; }
 
@@ -1135,7 +1129,7 @@ public:
 
 	bool isAnonymous() const { return m_anonymous; }
 
-	TypePointer type() const override;
+	Type const* type() const override;
 	FunctionTypePointer functionType(bool /*_internal*/) const override;
 
 	bool isVisibleInDerivedContracts() const override { return true; }
@@ -1153,6 +1147,47 @@ public:
 
 private:
 	bool m_anonymous = false;
+};
+
+/**
+ * Definition of an error type usable in ``revert(MyError(x))``, ``require(condition, MyError(x))``
+ * and ``catch MyError(_x)``.
+ */
+class ErrorDefinition: public CallableDeclaration, public StructurallyDocumented, public ScopeOpener
+{
+public:
+	ErrorDefinition(
+		int64_t _id,
+		SourceLocation const& _location,
+		ASTPointer<ASTString> const& _name,
+		SourceLocation _nameLocation,
+		ASTPointer<StructuredDocumentation> const& _documentation,
+		ASTPointer<ParameterList> const& _parameters
+	):
+		CallableDeclaration(_id, _location, _name, std::move(_nameLocation), Visibility::Default, _parameters),
+		StructurallyDocumented(_documentation)
+	{
+	}
+
+	void accept(ASTVisitor& _visitor) override;
+	void accept(ASTConstVisitor& _visitor) const override;
+
+	Type const* type() const override;
+
+	FunctionTypePointer functionType(bool _internal) const override;
+
+	bool isVisibleInDerivedContracts() const override { return true; }
+	bool isVisibleViaContractTypeAccess() const override { return true; }
+
+	ErrorDefinitionAnnotation& annotation() const override;
+
+	CallableDeclaration const& resolveVirtual(
+		ContractDefinition const&,
+		ContractDefinition const*
+	) const override
+	{
+		return *this;
+	}
 };
 
 /**
@@ -1179,7 +1214,7 @@ public:
 		solAssert(m_type->category() == Type::Category::Function, "");
 		return dynamic_cast<FunctionType const*>(m_type);
 	}
-	TypePointer type() const override { return m_type; }
+	Type const* type() const override { return m_type; }
 
 private:
 	Type const* m_type;
@@ -1676,6 +1711,31 @@ public:
 		Statement(_id, _location, _docString) {}
 	void accept(ASTVisitor& _visitor) override;
 	void accept(ASTConstVisitor& _visitor) const override;
+};
+
+/**
+ * The revert statement is used to revert state changes and return error data.
+ */
+class RevertStatement: public Statement
+{
+public:
+	explicit RevertStatement(
+		int64_t _id,
+		SourceLocation const& _location,
+		ASTPointer<ASTString> const& _docString,
+		ASTPointer<FunctionCall> _functionCall
+	):
+		Statement(_id, _location, _docString), m_errorCall(std::move(_functionCall))
+	{
+		solAssert(m_errorCall, "");
+	}
+	void accept(ASTVisitor& _visitor) override;
+	void accept(ASTConstVisitor& _visitor) const override;
+
+	FunctionCall const& errorCall() const { return *m_errorCall; }
+
+private:
+	ASTPointer<FunctionCall> m_errorCall;
 };
 
 /**

@@ -20,9 +20,10 @@ contract c {
     }
 }
 // ====
+// compileToEwasm: also
 // compileViaYul: also
 // ----
 // test() -> 3, 4
-// gas irOptimized: 195483
-// gas legacy: 208853
-// gas legacyOptimized: 200341
+// gas irOptimized: 191858
+// gas legacy: 195353
+// gas legacyOptimized: 192441

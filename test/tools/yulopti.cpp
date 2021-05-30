@@ -43,6 +43,8 @@
 
 #include <libsolutil/JSON.h>
 
+#include <libsolidity/interface/OptimiserSettings.h>
+
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/algorithm/string/join.hpp>
 #include <boost/program_options.hpp>
@@ -63,7 +65,6 @@
 #include <variant>
 
 using namespace std;
-using namespace ranges;
 using namespace solidity;
 using namespace solidity::util;
 using namespace solidity::langutil;
@@ -124,9 +125,9 @@ public:
 		);
 
 		vector<string> overlappingAbbreviations =
-			ranges::views::set_intersection(_extraOptions | views::keys, _optimizationSteps | views::keys) |
-			views::transform([](char _abbreviation){ return string(1, _abbreviation); }) |
-			to<vector>();
+			ranges::views::set_intersection(_extraOptions | ranges::views::keys, _optimizationSteps | ranges::views::keys) |
+			ranges::views::transform([](char _abbreviation){ return string(1, _abbreviation); }) |
+			ranges::to<vector>();
 
 		yulAssert(
 			overlappingAbbreviations.empty(),
@@ -138,9 +139,9 @@ public:
 		);
 
 		vector<tuple<char, string>> sortedOptions =
-			views::concat(_optimizationSteps, _extraOptions) |
-			to<vector<tuple<char, string>>>() |
-			actions::sort([](tuple<char, string> const& _a, tuple<char, string> const& _b) {
+			ranges::views::concat(_optimizationSteps, _extraOptions) |
+			ranges::to<vector<tuple<char, string>>>() |
+			ranges::actions::sort([](tuple<char, string> const& _a, tuple<char, string> const& _b) {
 				return (
 					!boost::algorithm::iequals(get<1>(_a), get<1>(_b)) ?
 					boost::algorithm::lexicographical_compare(get<1>(_a), get<1>(_b), boost::algorithm::is_iless()) :
@@ -152,7 +153,7 @@ public:
 		size_t rows = (sortedOptions.size() - 1) / _columns + 1;
 		for (size_t row = 0; row < rows; ++row)
 		{
-			for (auto const& [key, name]: sortedOptions | views::drop(row) | views::stride(rows))
+			for (auto const& [key, name]: sortedOptions | ranges::views::drop(row) | ranges::views::stride(rows))
 				cout << key << ": " << setw(static_cast<int>(longestDescriptionLength)) << setiosflags(ios::left) << name << " ";
 
 			cout << endl;
@@ -191,7 +192,12 @@ public:
 			char option = static_cast<char>(readStandardInputChar());
 			cout << ' ' << option << endl;
 
-			OptimiserStepContext context{m_dialect, *m_nameDispenser, reservedIdentifiers};
+			OptimiserStepContext context{
+				m_dialect,
+				*m_nameDispenser,
+				reservedIdentifiers,
+				solidity::frontend::OptimiserSettings::standard().expectedExecutionsPerDeployment
+			};
 
 			auto abbreviationAndName = abbreviationMap.find(option);
 			if (abbreviationAndName != abbreviationMap.end())

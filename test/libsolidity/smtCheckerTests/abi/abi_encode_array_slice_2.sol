@@ -1,4 +1,3 @@
-pragma experimental SMTChecker;
 contract C {
 	function abiEncodeSlice(uint[] calldata data) external pure {
 		bytes memory b1 = abi.encode(data);
@@ -19,13 +18,15 @@ contract C {
 		uint y = 10;
 		bytes memory b5 = abi.encode(data[x:y]);
 		// should hold but the engine cannot infer that data[5:10] is fully equals data[x:y] because each index is assigned separately
-		assert(b1.length == b5.length); // fails for now
+		// Disabled because of Spacer nondeterminism.
+		//assert(b1.length == b5.length); // fails for now
 	}
 }
 // ====
+// SMTEngine: all
 // SMTIgnoreCex: yes
 // ----
-// Warning 2072: (364-379): Unused local variable.
-// Warning 2072: (650-665): Unused local variable.
-// Warning 6328: (312-342): CHC: Assertion violation happens here.
-// Warning 6328: (995-1025): CHC: Assertion violation happens here.
+// Warning 2072: (332-347): Unused local variable.
+// Warning 2072: (618-633): Unused local variable.
+// Warning 2072: (791-806): Unused local variable.
+// Warning 6328: (280-310): CHC: Assertion violation happens here.

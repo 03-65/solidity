@@ -1,5 +1,3 @@
-pragma experimental SMTChecker;
-
 contract C {
 	struct S {
 		uint x;
@@ -21,8 +19,11 @@ contract C {
 		assert(i == 7); // should hold, not changed by the assembly
 	}
 }
+// ====
+// SMTEngine: all
+// SMTIgnoreCex: yes
 // ----
-// Warning 7737: (189-220): Inline assembly may cause SMTChecker to produce spurious warnings (false positives).
-// Warning 6328: (223-241): CHC: Assertion violation happens here.\nCounterexample:\ns = {x: 42}\n\nTransaction trace:\nC.constructor()\nState: s = {x: 0}\nC.f()
-// Warning 6328: (260-277): CHC: Assertion violation happens here.\nCounterexample:\ns = {x: 42}\n\nTransaction trace:\nC.constructor()\nState: s = {x: 0}\nC.f()
-// Warning 7737: (189-220): Inline assembly may cause SMTChecker to produce spurious warnings (false positives).
+// Warning 7737: (156-187): Inline assembly may cause SMTChecker to produce spurious warnings (false positives).
+// Warning 6328: (190-208): CHC: Assertion violation happens here.
+// Warning 6328: (227-244): CHC: Assertion violation happens here.
+// Warning 7737: (156-187): Inline assembly may cause SMTChecker to produce spurious warnings (false positives).

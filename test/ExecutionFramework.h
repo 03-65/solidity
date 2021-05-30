@@ -60,7 +60,8 @@ public:
 		u256 const& _value = 0,
 		std::string const& _contractName = "",
 		bytes const& _arguments = {},
-		std::map<std::string, util::h160> const& _libraryAddresses = {}
+		std::map<std::string, util::h160> const& _libraryAddresses = {},
+		std::optional<std::string> const& _sourceName = std::nullopt
 	) = 0;
 
 	bytes const& compileAndRun(
@@ -240,6 +241,12 @@ public:
 		return result;
 	}
 
+	util::h160 setAccount(size_t _accountNumber)
+	{
+		m_sender = account(_accountNumber);
+		return m_sender;
+	}
+
 private:
 	template <class CppFunction, class... Args>
 	auto callCppAndEncodeResult(CppFunction const& _cppFunction, Args const&... _arguments)
@@ -267,9 +274,9 @@ protected:
 	/// @returns the (potentially newly created) _ith address.
 	util::h160 account(size_t _i);
 
-	u256 balanceAt(util::h160 const& _addr);
-	bool storageEmpty(util::h160 const& _addr);
-	bool addressHasCode(util::h160 const& _addr);
+	u256 balanceAt(util::h160 const& _addr) const;
+	bool storageEmpty(util::h160 const& _addr) const;
+	bool addressHasCode(util::h160 const& _addr) const;
 
 	size_t numLogs() const;
 	size_t numLogTopics(size_t _logIdx) const;

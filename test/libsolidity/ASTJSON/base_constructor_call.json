@@ -100,7 +100,8 @@
         }
       ],
       "scope": 18,
-      "src": "0:35:1"
+      "src": "0:35:1",
+      "usedErrors": []
     },
     {
       "abstract": false,
@@ -120,10 +121,7 @@
           "src": "50:1:1"
         }
       ],
-      "contractDependencies":
-      [
-        7
-      ],
+      "contractDependencies": [],
       "contractKind": "contract",
       "fullyImplemented": true,
       "id": 17,
@@ -172,6 +170,7 @@
                 }
               ],
               "id": 13,
+              "kind": "baseConstructorSpecifier",
               "modifierName":
               {
                 "id": 11,
@@ -209,7 +208,8 @@
         }
       ],
       "scope": 18,
-      "src": "36:41:1"
+      "src": "36:41:1",
+      "usedErrors": []
     }
   ],
   "src": "0:78:1"

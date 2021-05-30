@@ -43,7 +43,8 @@
       "nodeType": "ContractDefinition",
       "nodes": [],
       "scope": 14,
-      "src": "0:14:1"
+      "src": "0:14:1",
+      "usedErrors": []
     },
     {
       "abstract": false,
@@ -63,10 +64,7 @@
           "src": "29:1:1"
         }
       ],
-      "contractDependencies":
-      [
-        1
-      ],
+      "contractDependencies": [],
       "contractKind": "contract",
       "fullyImplemented": true,
       "id": 4,
@@ -80,7 +78,8 @@
       "nodeType": "ContractDefinition",
       "nodes": [],
       "scope": 14,
-      "src": "15:19:1"
+      "src": "15:19:1",
+      "usedErrors": []
     },
     {
       "abstract": false,
@@ -100,11 +99,7 @@
           "src": "49:1:1"
         }
       ],
-      "contractDependencies":
-      [
-        1,
-        4
-      ],
+      "contractDependencies": [],
       "contractKind": "contract",
       "fullyImplemented": true,
       "id": 7,
@@ -119,7 +114,8 @@
       "nodeType": "ContractDefinition",
       "nodes": [],
       "scope": 14,
-      "src": "35:19:1"
+      "src": "35:19:1",
+      "usedErrors": []
     },
     {
       "abstract": false,
@@ -139,12 +135,7 @@
           "src": "69:1:1"
         }
       ],
-      "contractDependencies":
-      [
-        1,
-        4,
-        7
-      ],
+      "contractDependencies": [],
       "contractKind": "contract",
       "fullyImplemented": true,
       "id": 10,
@@ -160,7 +151,8 @@
       "nodeType": "ContractDefinition",
       "nodes": [],
       "scope": 14,
-      "src": "55:19:1"
+      "src": "55:19:1",
+      "usedErrors": []
     },
     {
       "abstract": false,
@@ -180,13 +172,7 @@
           "src": "89:1:1"
         }
       ],
-      "contractDependencies":
-      [
-        1,
-        4,
-        7,
-        10
-      ],
+      "contractDependencies": [],
       "contractKind": "contract",
       "fullyImplemented": true,
       "id": 13,
@@ -203,7 +189,8 @@
       "nodeType": "ContractDefinition",
       "nodes": [],
       "scope": 14,
-      "src": "75:19:1"
+      "src": "75:19:1",
+      "usedErrors": []
     }
   ],
   "src": "0:95:1"

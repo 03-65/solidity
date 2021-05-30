@@ -1,10 +1,9 @@
-pragma experimental SMTChecker;
-
 contract C
 {
 	uint[2] b1;
 	uint[2] b2;
 	function f(uint[2] storage a, uint[2] memory c) internal {
+		// Accesses are safe but oob is reported because of aliasing.
 		c[0] = 42;
 		a[0] = 2;
 		b1[0] = 1;
@@ -22,5 +21,11 @@ contract C
 	}
 }
 // ====
+// SMTEngine: all
 // SMTIgnoreCex: yes
 // ----
+// Warning 6368: (165-169): CHC: Out of bounds access happens here.
+// Warning 6368: (178-182): CHC: Out of bounds access happens here.
+// Warning 6368: (190-195): CHC: Out of bounds access happens here.
+// Warning 6368: (314-318): CHC: Out of bounds access happens here.
+// Warning 6368: (440-445): CHC: Out of bounds access happens here.

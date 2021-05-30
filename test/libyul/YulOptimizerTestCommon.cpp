@@ -32,6 +32,7 @@
 #include <libyul/optimiser/ExpressionSplitter.h>
 #include <libyul/optimiser/FunctionGrouper.h>
 #include <libyul/optimiser/FunctionHoister.h>
+#include <libyul/optimiser/FunctionSpecializer.h>
 #include <libyul/optimiser/ExpressionInliner.h>
 #include <libyul/optimiser/FullInliner.h>
 #include <libyul/optimiser/ForLoopConditionIntoBody.h>
@@ -150,6 +151,11 @@ YulOptimizerTestCommon::YulOptimizerTestCommon(
 		{"functionHoister", [&]() {
 			disambiguate();
 			FunctionHoister::run(*m_context, *m_ast);
+		}},
+		{"functionSpecializer", [&]() {
+			disambiguate();
+			FunctionHoister::run(*m_context, *m_object->code);
+			FunctionSpecializer::run(*m_context, *m_object->code);
 		}},
 		{"expressionInliner", [&]() {
 			disambiguate();
@@ -311,7 +317,14 @@ YulOptimizerTestCommon::YulOptimizerTestCommon(
 		}},
 		{"fullSuite", [&]() {
 			GasMeter meter(dynamic_cast<EVMDialect const&>(*m_dialect), false, 200);
-			OptimiserSuite::run(*m_dialect, &meter, *m_object, true, solidity::frontend::OptimiserSettings::DefaultYulOptimiserSteps);
+			OptimiserSuite::run(
+				*m_dialect,
+				&meter,
+				*m_object,
+				true,
+				frontend::OptimiserSettings::DefaultYulOptimiserSteps,
+				frontend::OptimiserSettings::standard().expectedExecutionsPerDeployment
+			);
 		}},
 		{"stackLimitEvader", [&]() {
 			disambiguate();
@@ -428,6 +441,7 @@ void YulOptimizerTestCommon::updateContext()
 	m_context = make_unique<OptimiserStepContext>(OptimiserStepContext{
 		*m_dialect,
 		*m_nameDispenser,
-		m_reservedIdentifiers
+		m_reservedIdentifiers,
+		frontend::OptimiserSettings::standard().expectedExecutionsPerDeployment
 	});
 }

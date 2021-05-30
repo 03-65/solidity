@@ -30,6 +30,8 @@ set(sources
 	analysis/OverrideChecker.h
 	analysis/PostTypeChecker.cpp
 	analysis/PostTypeChecker.h
+	analysis/PostTypeContractLevelChecker.cpp
+	analysis/PostTypeContractLevelChecker.h
 	analysis/ReferencesResolver.cpp
 	analysis/ReferencesResolver.h
 	analysis/Scoper.cpp
@@ -131,6 +133,10 @@ set(sources
 	interface/CompilerStack.cpp
 	interface/CompilerStack.h
 	interface/DebugSettings.h
+	interface/FileReader.cpp
+	interface/FileReader.h
+	interface/ImportRemapper.cpp
+	interface/ImportRemapper.h
 	interface/GasEstimator.cpp
 	interface/GasEstimator.h
 	interface/Natspec.cpp

@@ -71,7 +71,7 @@ bool DocStringTagParser::visit(VariableDeclaration const& _variable)
 		if (_variable.isPublic())
 			parseDocStrings(_variable, _variable.annotation(), {"dev", "notice", "return", "inheritdoc"}, "public state variables");
 		else
-			parseDocStrings(_variable, _variable.annotation(), {"dev", "inheritdoc"}, "non-public state variables");
+			parseDocStrings(_variable, _variable.annotation(), {"dev", "notice", "inheritdoc"}, "non-public state variables");
 	}
 	else if (_variable.isFileLevelVariable())
 		parseDocStrings(_variable, _variable.annotation(), {"dev"}, "file-level variables");
@@ -88,6 +88,13 @@ bool DocStringTagParser::visit(ModifierDefinition const& _modifier)
 bool DocStringTagParser::visit(EventDefinition const& _event)
 {
 	handleCallable(_event, _event, _event.annotation());
+
+	return true;
+}
+
+bool DocStringTagParser::visit(ErrorDefinition const& _error)
+{
+	handleCallable(_error, _error, _error.annotation());
 
 	return true;
 }
@@ -134,11 +141,14 @@ void DocStringTagParser::handleCallable(
 )
 {
 	static set<string> const validEventTags = set<string>{"dev", "notice", "return", "param"};
+	static set<string> const validErrorTags = set<string>{"dev", "notice", "param"};
 	static set<string> const validModifierTags = set<string>{"dev", "notice", "param", "inheritdoc"};
 	static set<string> const validTags = set<string>{"dev", "notice", "return", "param", "inheritdoc"};
 
 	if (dynamic_cast<EventDefinition const*>(&_callable))
 		parseDocStrings(_node, _annotation, validEventTags, "events");
+	else if (dynamic_cast<ErrorDefinition const*>(&_callable))
+		parseDocStrings(_node, _annotation, validErrorTags, "errors");
 	else if (dynamic_cast<ModifierDefinition const*>(&_callable))
 		parseDocStrings(_node, _annotation, validModifierTags, "modifiers");
 	else
@@ -163,7 +173,13 @@ void DocStringTagParser::parseDocStrings(
 	for (auto const& [tagName, tagValue]: _annotation.docTags)
 	{
 		string static const customPrefix("custom:");
-		if (boost::starts_with(tagName, customPrefix) && tagName.size() > customPrefix.size())
+		if (tagName == "custom" || tagName == "custom:")
+			m_errorReporter.docstringParsingError(
+				6564_error,
+				_node.documentation()->location(),
+				"Custom documentation tag must contain a chosen name, i.e. @custom:mytag."
+			);
+		else if (boost::starts_with(tagName, customPrefix) && tagName.size() > customPrefix.size())
 		{
 			regex static const customRegex("^custom:[a-z][a-z-]*$");
 			if (!regex_match(tagName, customRegex))

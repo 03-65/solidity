@@ -5,7 +5,7 @@ Layout of a Solidity Source File
 Source files can contain an arbitrary number of
 :ref:`contract definitions<contract_structure>`, import_ directives,
 :ref:`pragma directives<pragma>` and
-:ref:`struct<structs>`, :ref:`enum<enums>`, :ref:`function<functions>`
+:ref:`struct<structs>`, :ref:`enum<enums>`, :ref:`function<functions>`, :ref:`error<errors>`
 and :ref:`constant variable<constants>` definitions.
 
 .. index:: ! license, spdx
@@ -79,7 +79,7 @@ be sure that your code compiles the way you intended. The exact version of the
 compiler is not fixed, so that bugfix releases are still possible.
 
 It is possible to specify more complex rules for the compiler version,
-these follow the same syntax used by `npm <https://docs.npmjs.com/misc/semver>`_.
+these follow the same syntax used by `npm <https://docs.npmjs.com/cli/v6/using-npm/semver>`_.
 
 .. note::
   Using the version pragma *does not* change the version of the compiler.
@@ -330,36 +330,11 @@ Single-line comments (``//``) and multi-line comments (``/*...*/``) are possible
 
 .. note::
   A single-line comment is terminated by any unicode line terminator
-  (LF, VF, FF, CR, NEL, LS or PS) in utf8 encoding. The terminator is still part of
-  the source code after the comment, so if it is not an ascii symbol
+  (LF, VF, FF, CR, NEL, LS or PS) in UTF-8 encoding. The terminator is still part of
+  the source code after the comment, so if it is not an ASCII symbol
   (these are NEL, LS and PS), it will lead to a parser error.
 
-Additionally, there is another type of comment called a natspec comment,
-which is detailed in the :ref:`style guide<natspec>`. They are written with a
-triple slash (``///``) or a double asterisk block(``/** ... */``) and
+Additionally, there is another type of comment called a NatSpec comment,
+which is detailed in the :ref:`style guide<style_guide_natspec>`. They are written with a
+triple slash (``///``) or a double asterisk block (``/** ... */``) and
 they should be used directly above function declarations or statements.
-You can use `Doxygen <https://en.wikipedia.org/wiki/Doxygen>`_-style tags inside these comments to document
-functions, annotate conditions for formal verification, and provide a
-**confirmation text** which is shown to users when they attempt to invoke a
-function.
-
-In the following example we document the title of the contract, the explanation
-for the two function parameters and two return variables.
-
-::
-
-    // SPDX-License-Identifier: GPL-3.0
-    pragma solidity >=0.4.21 <0.9.0;
-
-    /** @title Shape calculator. */
-    contract ShapeCalculator {
-        /// @dev Calculates a rectangle's surface and perimeter.
-        /// @param w Width of the rectangle.
-        /// @param h Height of the rectangle.
-        /// @return s The calculated surface.
-        /// @return p The calculated perimeter.
-        function rectangle(uint w, uint h) public pure returns (uint s, uint p) {
-            s = w * h;
-            p = 2 * (w + h);
-        }
-    }

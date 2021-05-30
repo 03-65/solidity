@@ -158,9 +158,12 @@ at each version. Backward compatibility is not guaranteed between each version.
    - Shifting operators use shifting opcodes and thus need less gas.
 - ``petersburg``
    - The compiler behaves the same way as with constantinople.
-- ``istanbul`` (**default**)
+- ``istanbul``
    - Opcodes ``chainid`` and ``selfbalance`` are available in assembly.
-- ``berlin`` (**experimental**)
+- ``berlin`` (**default**)
+   - Gas costs for ``SLOAD``, ``*CALL``, ``BALANCE``, ``EXT*`` and ``SELFDESTRUCT`` increased. The
+     compiler assumes cold gas costs for such operations. This is relevant for gas estimation and
+     the optimizer.
 
 
 .. _compiler-api:
@@ -344,6 +347,7 @@ Input Description
         //   storageLayout - Slots, offsets and types of the contract's state variables.
         //   evm.assembly - New assembly format
         //   evm.legacyAssembly - Old-style assembly format in JSON
+        //   evm.bytecode.functionDebugData - Debugging information at function level
         //   evm.bytecode.object - Bytecode object
         //   evm.bytecode.opcodes - Opcodes list
         //   evm.bytecode.sourceMap - Source mapping (useful for debugging)
@@ -374,16 +378,22 @@ Input Description
             "MyContract": [ "abi", "evm.bytecode.opcodes" ]
           }
         },
+        // The modelChecker object is experimental and subject to changes.
         "modelChecker":
         {
+          // Chose which contracts should be analyzed as the deployed one.
+          contracts:
+          {
+            "source1.sol": ["contract1"],
+            "source2.sol": ["contract2", "contract3"]
+          },
           // Choose which model checker engine to use: all (default), bmc, chc, none.
           "engine": "chc",
-          // Choose which targets should be checked: all (default), constantCondition,
-          // underflow, overflow, divByZero, balance, assert, popEmptyArray.
+          // Choose which targets should be checked: constantCondition,
+          // underflow, overflow, divByZero, balance, assert, popEmptyArray, outOfBounds.
+          // If the option is not given all targets are checked by default.
           // See the Formal Verification section for the targets description.
-          // Multiple targets can be selected at the same time, separated by a comma
-          // without spaces:
-          "targets": "underflow,overflow,assert",
+          "targets": ["underflow", "overflow", "assert"],
           // Timeout for each SMT query in milliseconds.
           // If this option is not given, the SMTChecker will use a deterministic
           // resource limit by default.
@@ -470,6 +480,17 @@ Output Description
               "legacyAssembly": {},
               // Bytecode and related details.
               "bytecode": {
+                // Debugging data at the level of functions.
+                "functionDebugData": {
+                  // Now follows a set of functions including compiler-internal and
+                  // user-defined function. The set does not have to be complete.
+                  "@mint_13": { // Internal name of the function
+                    "entryPoint": 128, // Byte offset into the bytecode where the function starts (optional)
+                    "id": 13, // AST ID of the function definition or null for compiler-internal functions (optional)
+                    "parameterSlots": 2, // Number of EVM stack slots for the function parameters (optional)
+                    "returnSlots": 1 // Number of EVM stack slots for the return values (optional)
+                  }
+                },
                 // The bytecode as a hex string.
                 "object": "00fe",
                 // Opcodes list (string)

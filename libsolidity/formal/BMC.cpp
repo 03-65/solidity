@@ -41,10 +41,9 @@ BMC::BMC(
 	smtutil::SMTSolverChoice _enabledSolvers,
 	ModelCheckerSettings const& _settings
 ):
-	SMTEncoder(_context),
+	SMTEncoder(_context, _settings),
 	m_interface(make_unique<smtutil::SMTPortfolio>(_smtlib2Responses, _smtCallback, _enabledSolvers, _settings.timeout)),
-	m_outerErrorReporter(_errorReporter),
-	m_settings(_settings)
+	m_outerErrorReporter(_errorReporter)
 {
 #if defined (HAVE_Z3) || defined (HAVE_CVC4)
 	if (_enabledSolvers.some())
@@ -61,10 +60,6 @@ BMC::BMC(
 
 void BMC::analyze(SourceUnit const& _source, map<ASTNode const*, set<VerificationTargetType>> _solvedTargets)
 {
-	solAssert(_source.annotation().experimentalFeatures.count(ExperimentalFeature::SMTChecker), "");
-
-	/// This is currently used to abort analysis of SourceUnits
-	/// containing file level functions or constants.
 	if (SMTEncoder::analyze(_source))
 	{
 		m_solvedTargets = move(_solvedTargets);
@@ -72,6 +67,7 @@ void BMC::analyze(SourceUnit const& _source, map<ASTNode const*, set<Verificatio
 		m_context.clear();
 		m_context.setAssertionAccumulation(true);
 		m_variableUsage.setFunctionInlining(shouldInlineFunctionCall);
+		createFreeConstants(sourceDependencies(_source));
 
 		_source.accept(*this);
 	}
@@ -151,11 +147,13 @@ void BMC::endVisit(ContractDefinition const& _contract)
 
 bool BMC::visit(FunctionDefinition const& _function)
 {
+	// Free functions need to be visited in the context of a contract.
+	if (!m_currentContract)
+		return false;
+
 	auto contract = dynamic_cast<ContractDefinition const*>(_function.scope());
-	solAssert(contract, "");
-	solAssert(m_currentContract, "");
 	auto const& hierarchy = m_currentContract->annotation().linearizedBaseContracts;
-	if (find(hierarchy.begin(), hierarchy.end(), contract) == hierarchy.end())
+	if (contract && find(hierarchy.begin(), hierarchy.end(), contract) == hierarchy.end())
 		createStateVariables(*contract);
 
 	if (m_callStack.empty())
@@ -167,7 +165,10 @@ bool BMC::visit(FunctionDefinition const& _function)
 	}
 
 	if (_function.isConstructor())
-		inlineConstructorHierarchy(dynamic_cast<ContractDefinition const&>(*_function.scope()));
+	{
+		solAssert(contract, "");
+		inlineConstructorHierarchy(*contract);
+	}
 
 	/// Already visits the children.
 	SMTEncoder::visit(_function);
@@ -177,6 +178,10 @@ bool BMC::visit(FunctionDefinition const& _function)
 
 void BMC::endVisit(FunctionDefinition const& _function)
 {
+	// Free functions need to be visited in the context of a contract.
+	if (!m_currentContract)
+		return;
+
 	if (isRootFunction())
 	{
 		checkVerificationTargets();
@@ -208,22 +213,18 @@ bool BMC::visit(IfStatement const& _node)
 	auto conditionExpr = expr(_node.condition());
 	// visit true branch
 	auto [indicesEndTrue, trueEndPathCondition] = visitBranch(&_node.trueStatement(), conditionExpr);
-	auto touchedVars = touchedVariables(_node.trueStatement());
 
 	// visit false branch
 	decltype(indicesEndTrue) indicesEndFalse;
 	auto falseEndPathCondition = currentPathConditions() && !conditionExpr;
 	if (_node.falseStatement())
-	{
 		std::tie(indicesEndFalse, falseEndPathCondition) = visitBranch(_node.falseStatement(), !conditionExpr);
-		touchedVars += touchedVariables(*_node.falseStatement());
-	}
 	else
 		indicesEndFalse = copyVariableIndices();
 
 	// merge the information from branches
 	setPathCondition(trueEndPathCondition || falseEndPathCondition);
-	mergeVariables(touchedVars, expr(_node.condition()), indicesEndTrue, indicesEndFalse);
+	mergeVariables(expr(_node.condition()), indicesEndTrue, indicesEndFalse);
 
 	return false;
 }
@@ -258,8 +259,7 @@ bool BMC::visit(Conditional const& _op)
 bool BMC::visit(WhileStatement const& _node)
 {
 	auto indicesBeforeLoop = copyVariableIndices();
-	auto touchedVars = touchedVariables(_node);
-	m_context.resetVariables(touchedVars);
+	m_context.resetVariables(touchedVariables(_node));
 	decltype(indicesBeforeLoop) indicesAfterLoop;
 	if (_node.isDoWhile())
 	{
@@ -294,7 +294,7 @@ bool BMC::visit(WhileStatement const& _node)
 	if (!_node.isDoWhile())
 		_node.condition().accept(*this);
 
-	mergeVariables(touchedVars, expr(_node.condition()), indicesAfterLoop, copyVariableIndices());
+	mergeVariables(expr(_node.condition()), indicesAfterLoop, copyVariableIndices());
 
 	m_loopExecutionHappened = true;
 	return false;
@@ -344,7 +344,7 @@ bool BMC::visit(ForStatement const& _node)
 		_node.condition()->accept(*this);
 
 	auto forCondition = _node.condition() ? expr(*_node.condition()) : smtutil::Expression(true);
-	mergeVariables(touchedVars, forCondition, indicesAfterLoop, copyVariableIndices());
+	mergeVariables(forCondition, indicesAfterLoop, copyVariableIndices());
 
 	m_loopExecutionHappened = true;
 	return false;
@@ -363,20 +363,16 @@ bool BMC::visit(TryStatement const& _tryStatement)
 	auto const& clauses = _tryStatement.clauses();
 	m_context.addAssertion(clauseId >= 0 && clauseId < clauses.size());
 	solAssert(clauses[0].get() == _tryStatement.successClause(), "First clause of TryStatement should be the success clause");
-	vector<set<VariableDeclaration const*>> touchedVars;
 	vector<pair<VariableIndices, smtutil::Expression>> clausesVisitResults;
 	for (size_t i = 0; i < clauses.size(); ++i)
-	{
 		clausesVisitResults.push_back(visitBranch(clauses[i].get()));
-		touchedVars.push_back(touchedVariables(*clauses[i]));
-	}
 
 	// merge the information from all clauses
 	smtutil::Expression pathCondition = clausesVisitResults.front().second;
 	auto currentIndices = clausesVisitResults[0].first;
 	for (size_t i = 1; i < clauses.size(); ++i)
 	{
-		mergeVariables(touchedVars[i - 1] + touchedVars[i], clauseId == i, clausesVisitResults[i].first, currentIndices);
+		mergeVariables(clauseId == i, clausesVisitResults[i].first, currentIndices);
 		currentIndices = copyVariableIndices();
 		pathCondition = pathCondition || clausesVisitResults[i].second;
 	}
@@ -569,7 +565,7 @@ pair<smtutil::Expression, smtutil::Expression> BMC::arithmeticOperation(
 	Token _op,
 	smtutil::Expression const& _left,
 	smtutil::Expression const& _right,
-	TypePointer const& _commonType,
+	Type const* _commonType,
 	Expression const& _expression
 )
 {
@@ -841,7 +837,7 @@ void BMC::addVerificationTarget(
 	Expression const* _expression
 )
 {
-	if (!m_settings.targets.has(_type))
+	if (!m_settings.targets.has(_type) || (m_currentContract && !shouldAnalyze(*m_currentContract)))
 		return;
 
 	BMCVerificationTarget target{

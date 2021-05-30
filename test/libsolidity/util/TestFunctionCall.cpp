@@ -61,34 +61,22 @@ string TestFunctionCall::format(
 			stream << _linePrefix << newline << ws << "library:" << ws << m_call.signature;
 			return;
 		}
-		else if (m_call.kind == FunctionCall::Kind::Storage)
-		{
-			stream << _linePrefix << newline << ws << "storage" << colon << ws;
-			soltestAssert(m_rawBytes.size() == 1, "");
-			soltestAssert(m_call.expectations.rawBytes().size() == 1, "");
-			bool isEmpty =
-				_renderMode == RenderMode::ActualValuesExpectedGas ?
-				m_rawBytes.front() == 0 :
-				m_call.expectations.rawBytes().front() == 0;
-			string output = isEmpty ? "empty" : "nonempty";
-			if (_renderMode == RenderMode::ActualValuesExpectedGas && !matchesExpectation())
-				AnsiColorized(stream, highlight, {util::formatting::RED_BACKGROUND}) << output;
-			else
-				stream << output;
-
-			return;
-		}
 
 		/// Formats the function signature. This is the same independent from the display-mode.
 		stream << _linePrefix << newline << ws << m_call.signature;
 		if (m_call.value.value > u256(0))
 		{
-			if (m_call.value.unit == FunctionValueUnit::Ether)
+			switch (m_call.value.unit)
+			{
+			case FunctionValueUnit::Ether:
 				stream << comma << ws << (m_call.value.value / exp256(10, 18)) << ws << ether;
-			else if (m_call.value.unit == FunctionValueUnit::Wei)
+				break;
+			case FunctionValueUnit::Wei:
 				stream << comma << ws << m_call.value.value << ws << wei;
-			else
+				break;
+			default:
 				soltestAssert(false, "");
+			}
 		}
 		if (!m_call.arguments.rawBytes().empty())
 		{
@@ -209,6 +197,23 @@ string TestFunctionCall::format(
 		}
 
 		stream << formatGasExpectations(_linePrefix, _renderMode == RenderMode::ExpectedValuesActualGas, _interactivePrint);
+
+		vector<string> sideEffects;
+		if (_renderMode == RenderMode::ExpectedValuesExpectedGas || _renderMode == RenderMode::ExpectedValuesActualGas)
+			sideEffects = m_call.expectedSideEffects;
+		else
+			sideEffects = m_call.actualSideEffects;
+
+		if (!sideEffects.empty())
+		{
+			stream << std::endl;
+			for (string const& effect: sideEffects)
+			{
+				stream << _linePrefix << "// ~ " << effect;
+				if (effect != *sideEffects.rbegin())
+					stream << std::endl;
+			}
+		}
 	};
 
 	formatOutput(m_call.displayMode == FunctionCall::DisplayMode::SingleLine);
@@ -360,6 +365,7 @@ void TestFunctionCall::reset()
 {
 	m_rawBytes = bytes{};
 	m_failure = true;
+	m_contractABI = Json::Value{};
 	m_calledNonExistingFunction = false;
 }
 

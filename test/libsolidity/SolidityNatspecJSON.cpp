@@ -303,7 +303,11 @@ BOOST_AUTO_TEST_CASE(public_state_variable)
 			"state" :
 			{
 				"details" : "example of dev",
-				"return" : "returns state"
+				"return" : "returns state",
+				"returns" :
+				{
+					"_0" : "returns state"
+				}
 			}
 		}
 	}
@@ -2247,6 +2251,108 @@ BOOST_AUTO_TEST_CASE(dev_return_name_no_description)
 	checkNatspec(sourceCode, "B", natspec2, false);
 }
 
+BOOST_AUTO_TEST_CASE(error)
+{
+	char const* sourceCode = R"(
+		contract test {
+			/// Something failed.
+			/// @dev an error.
+			/// @param a first parameter
+			/// @param b second parameter
+			error E(uint a, uint b);
+		}
+	)";
+
+	char const* devdoc = R"X({
+		"errors":{
+			"E(uint256,uint256)": [{
+				"details" : "an error.",
+				"params" :
+				{
+					"a" : "first parameter",
+					"b" : "second parameter"
+				}
+			}]
+		},
+		"methods": {}
+	})X";
+
+	checkNatspec(sourceCode, "test", devdoc, false);
+
+	char const* userdoc = R"X({
+		"errors":{
+			"E(uint256,uint256)": [{
+				"notice" : "Something failed."
+			}]
+		},
+		"methods": {}
+	})X";
+	checkNatspec(sourceCode, "test", userdoc, true);
+}
+
+BOOST_AUTO_TEST_CASE(error_multiple)
+{
+	char const* sourceCode = R"(
+		contract A {
+			/// Something failed.
+			/// @dev an error.
+			/// @param x first parameter
+			/// @param y second parameter
+			error E(uint x, uint y);
+		}
+		contract test {
+			/// X Something failed.
+			/// @dev X an error.
+			/// @param a X first parameter
+			/// @param b X second parameter
+			error E(uint a, uint b);
+			function f(bool a) public pure {
+				if (a)
+					revert E(1, 2);
+				else
+					revert A.E(5, 6);
+			}
+		}
+	)";
+
+	char const* devdoc = R"X({
+		"methods": {},
+		"errors": {
+			"E(uint256,uint256)": [
+				{
+					"details" : "an error.",
+					"params" :
+					{
+						"x" : "first parameter",
+						"y" : "second parameter"
+					}
+				},
+				{
+					"details" : "X an error.",
+					"params" :
+					{
+						"a" : "X first parameter",
+						"b" : "X second parameter"
+					}
+				}
+			]
+		}
+	})X";
+
+	checkNatspec(sourceCode, "test", devdoc, false);
+
+	char const* userdoc = R"X({
+		"errors":{
+			"E(uint256,uint256)": [
+				{ "notice" : "Something failed." },
+				{ "notice" : "X Something failed." }
+			]
+		},
+		"methods": {}
+	})X";
+	checkNatspec(sourceCode, "test", userdoc, true);
+}
+
 BOOST_AUTO_TEST_CASE(custom)
 {
 	char const* sourceCode = R"(
@@ -2307,6 +2413,58 @@ BOOST_AUTO_TEST_CASE(custom_inheritance)
 
 	checkNatspec(sourceCode, "A", natspecA, false);
 	checkNatspec(sourceCode, "B", natspecB, false);
+}
+
+BOOST_AUTO_TEST_CASE(dev_different_amount_return_parameters)
+{
+	char const *sourceCode = R"(
+		interface IThing {
+			/// @return x a number
+			/// @return y another number
+			function value() external view returns (uint128 x, uint128 y);
+		}
+
+		contract Thing is IThing {
+			struct Value {
+				uint128 x;
+				uint128 y;
+			}
+
+			Value public override value;
+		}
+	)";
+
+	char const *natspec = R"ABCDEF({
+		"methods":
+		{
+			"value()":
+			{
+			  "returns":
+			  {
+				"x": "a number",
+				"y": "another number"
+			  }
+			}
+		}
+	})ABCDEF";
+
+	char const *natspec2 = R"ABCDEF({
+		"methods": {},
+		"stateVariables":
+		{
+			"value":
+			{
+				"returns":
+				{
+					"x": "a number",
+					"y": "another number"
+				}
+			}
+		}
+	})ABCDEF";
+
+	checkNatspec(sourceCode, "IThing", natspec, false);
+	checkNatspec(sourceCode, "Thing", natspec2, false);
 }
 
 }

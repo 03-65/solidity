@@ -236,6 +236,16 @@ bool ControlFlowBuilder::visit(Throw const& _throw)
 	return false;
 }
 
+bool ControlFlowBuilder::visit(RevertStatement const& _revert)
+{
+	solAssert(!!m_currentNode, "");
+	solAssert(!!m_revertNode, "");
+	visitNode(_revert);
+	connect(m_currentNode, m_revertNode);
+	m_currentNode = newLabel();
+	return false;
+}
+
 bool ControlFlowBuilder::visit(PlaceholderStatement const&)
 {
 	solAssert(!!m_currentNode, "");
@@ -472,7 +482,7 @@ void ControlFlowBuilder::operator()(yul::Identifier const& _identifier)
 			m_currentNode->variableOccurrences.emplace_back(
 				*declaration,
 				VariableOccurrence::Kind::Access,
-				_identifier.location
+				_identifier.debugData->location
 			);
 	}
 }
@@ -488,7 +498,7 @@ void ControlFlowBuilder::operator()(yul::Assignment const& _assignment)
 				m_currentNode->variableOccurrences.emplace_back(
 					*declaration,
 					VariableOccurrence::Kind::Assignment,
-					variable.location
+					variable.debugData->location
 				);
 }
 

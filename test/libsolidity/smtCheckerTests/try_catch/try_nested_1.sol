@@ -1,4 +1,3 @@
-pragma experimental SMTChecker;
 contract C {
 	int public x;
 
@@ -17,5 +16,8 @@ contract C {
 		assert(y == 42); // should fail
 	}
 }
+// ====
+// SMTEngine: all
+// SMTIgnoreCex: yes
 // ----
-// Warning 6328: (312-327): CHC: Assertion violation happens here.\nCounterexample:\nx = 0\n\nTransaction trace:\nC.constructor()\nState: x = 0\nC.f()
+// Warning 6328: (280-295): CHC: Assertion violation happens here.

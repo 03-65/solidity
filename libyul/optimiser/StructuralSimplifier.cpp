@@ -22,15 +22,14 @@
 #include <libsolutil/CommonData.h>
 #include <libsolutil/Visitor.h>
 
-#include <boost/range/algorithm_ext/erase.hpp>
-
 using namespace std;
 using namespace solidity;
 using namespace solidity::yul;
 
 using OptionalStatements = std::optional<vector<Statement>>;
 
-namespace {
+namespace
+{
 
 OptionalStatements replaceConstArgSwitch(Switch& _switchStmt, u256 const& _constExprVal)
 {

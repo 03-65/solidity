@@ -474,7 +474,7 @@ BOOST_AUTO_TEST_CASE(basic_compilation)
 		"{\"absolutePath\":\"fileA\",\"exportedSymbols\":{\"A\":[1]},\"id\":2,\"nodeType\":\"SourceUnit\",\"nodes\":[{\"abstract\":false,"
 		"\"baseContracts\":[],\"contractDependencies\":[],\"contractKind\":\"contract\",\"fullyImplemented\":true,\"id\":1,"
 		"\"linearizedBaseContracts\":[1],\"name\":\"A\",\"nameLocation\":\"9:1:0\",\"nodeType\":\"ContractDefinition\",\"nodes\":[],\"scope\":2,"
-		"\"src\":\"0:14:0\"}],\"src\":\"0:14:0\"}"
+		"\"src\":\"0:14:0\",\"usedErrors\":[]}],\"src\":\"0:14:0\"}"
 	);
 }
 
@@ -1065,9 +1065,11 @@ BOOST_AUTO_TEST_CASE(evm_version)
 	BOOST_CHECK(result["contracts"]["fileA"]["A"]["metadata"].asString().find("\"evmVersion\":\"petersburg\"") != string::npos);
 	result = compile(inputForVersion("\"evmVersion\": \"istanbul\","));
 	BOOST_CHECK(result["contracts"]["fileA"]["A"]["metadata"].asString().find("\"evmVersion\":\"istanbul\"") != string::npos);
+	result = compile(inputForVersion("\"evmVersion\": \"berlin\","));
+	BOOST_CHECK(result["contracts"]["fileA"]["A"]["metadata"].asString().find("\"evmVersion\":\"berlin\"") != string::npos);
 	// test default
 	result = compile(inputForVersion(""));
-	BOOST_CHECK(result["contracts"]["fileA"]["A"]["metadata"].asString().find("\"evmVersion\":\"istanbul\"") != string::npos);
+	BOOST_CHECK(result["contracts"]["fileA"]["A"]["metadata"].asString().find("\"evmVersion\":\"berlin\"") != string::npos);
 	// test invalid
 	result = compile(inputForVersion("\"evmVersion\": \"invalid\","));
 	BOOST_CHECK(result["errors"][0]["message"].asString() == "Invalid EVM version requested.");
@@ -1195,7 +1197,8 @@ BOOST_AUTO_TEST_CASE(optimizer_settings_details_different)
 				"jumpdestRemover" : true,
 				"orderLiterals" : false,
 				"peephole" : true,
-				"yul": true
+				"yul": true,
+				"inliner": true
 			} }
 		},
 		"sources": {
