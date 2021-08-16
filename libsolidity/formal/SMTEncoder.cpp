@@ -30,6 +30,8 @@
 #include <libsmtutil/SMTPortfolio.h>
 #include <libsmtutil/Helpers.h>
 
+#include <liblangutil/CharStreamProvider.h>
+
 #include <range/v3/view.hpp>
 
 #include <boost/range/adaptors.hpp>
@@ -45,11 +47,13 @@ using namespace solidity::frontend;
 
 SMTEncoder::SMTEncoder(
 	smt::EncodingContext& _context,
-	ModelCheckerSettings const& _settings
+	ModelCheckerSettings const& _settings,
+	langutil::CharStreamProvider const& _charStreamProvider
 ):
 	m_errorReporter(m_smtErrors),
 	m_context(_context),
-	m_settings(_settings)
+	m_settings(_settings),
+	m_charStreamProvider(_charStreamProvider)
 {
 }
 
@@ -1022,6 +1026,17 @@ void SMTEncoder::visitTypeConversion(FunctionCall const& _funCall)
 		return;
 	}
 
+	ArrayType const* arrayType = dynamic_cast<ArrayType const*>(argType);
+	if (auto sliceType = dynamic_cast<ArraySliceType const*>(argType))
+		arrayType = &sliceType->arrayType();
+
+	if (arrayType && arrayType->isByteArray() && smt::isFixedBytes(*funCallType))
+	{
+		auto array = dynamic_pointer_cast<smt::SymbolicArrayVariable>(m_context.expression(*argument));
+		bytesToFixedBytesAssertions(*array, _funCall);
+		return;
+	}
+
 	// TODO Simplify this whole thing for 0.8.0 where weird casts are disallowed.
 
 	unsigned argSize = argType->storageBytes();
@@ -1204,6 +1219,25 @@ void SMTEncoder::addArrayLiteralAssertions(
 	m_context.addAssertion(_symArray.length() == _elementValues.size());
 	for (size_t i = 0; i < _elementValues.size(); i++)
 		m_context.addAssertion(smtutil::Expression::select(_symArray.elements(), i) == _elementValues[i]);
+}
+
+void SMTEncoder::bytesToFixedBytesAssertions(
+	smt::SymbolicArrayVariable& _symArray,
+	Expression const& _fixedBytes
+)
+{
+	auto const& fixed = dynamic_cast<FixedBytesType const&>(*_fixedBytes.annotation().type);
+	auto intType = TypeProvider::uint256();
+	string suffix = to_string(_fixedBytes.id()) + "_" + to_string(m_context.newUniqueId());
+	smt::SymbolicIntVariable k(intType, intType, "k_" + suffix, m_context);
+	m_context.addAssertion(k.currentValue() == 0);
+	size_t n = fixed.numBytes();
+	for (size_t i = 0; i < n; i++)
+	{
+		auto kPrev = k.currentValue();
+		m_context.addAssertion((smtutil::Expression::select(_symArray.elements(), i) * (u256(1) << ((n - i - 1) * 8))) + kPrev == k.increaseIndex());
+	}
+	m_context.addAssertion(expr(_fixedBytes) == k.currentValue());
 }
 
 void SMTEncoder::endVisit(Return const& _return)
@@ -1882,6 +1916,9 @@ pair<smtutil::Expression, smtutil::Expression> SMTEncoder::divModWithSlacks(
 	IntegerType const& _type
 )
 {
+	if (m_settings.divModNoSlacks)
+		return {_left / _right, _left % _right};
+
 	IntegerType const* intType = &_type;
 	string suffix = "div_mod_" + to_string(m_context.newUniqueId());
 	smt::SymbolicIntVariable dSymb(intType, intType, "d_" + suffix, m_context);
@@ -2997,6 +3034,15 @@ void SMTEncoder::createFreeConstants(set<SourceUnit const*, ASTNode::CompareByID
 		for (auto node: source->nodes())
 			if (auto var = dynamic_cast<VariableDeclaration const*>(node.get()))
 				createVariable(*var);
+			else if (
+				auto contract = dynamic_cast<ContractDefinition const*>(node.get());
+				contract && contract->isLibrary()
+			)
+				for (auto var: contract->stateVariables())
+				{
+					solAssert(var->isConstant(), "");
+					createVariable(*var);
+				}
 }
 
 smt::SymbolicState& SMTEncoder::state()

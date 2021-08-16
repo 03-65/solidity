@@ -53,10 +53,11 @@ add_library(yul
 	backends/evm/AsmCodeGen.h
 	backends/evm/ConstantOptimiser.cpp
 	backends/evm/ConstantOptimiser.h
+	backends/evm/ControlFlowGraph.h
+	backends/evm/ControlFlowGraphBuilder.cpp
+	backends/evm/ControlFlowGraphBuilder.h
 	backends/evm/EthAssemblyAdapter.cpp
 	backends/evm/EthAssemblyAdapter.h
-	backends/evm/EVMAssembly.cpp
-	backends/evm/EVMAssembly.h
 	backends/evm/EVMCodeTransform.cpp
 	backends/evm/EVMCodeTransform.h
 	backends/evm/EVMDialect.cpp
@@ -131,6 +132,8 @@ add_library(yul
 	optimiser/FullInliner.h
 	optimiser/FunctionCallFinder.cpp
 	optimiser/FunctionCallFinder.h
+	optimiser/FunctionDefinitionCollector.cpp
+	optimiser/FunctionDefinitionCollector.h
 	optimiser/FunctionGrouper.cpp
 	optimiser/FunctionGrouper.h
 	optimiser/FunctionHoister.cpp
@@ -164,6 +167,8 @@ add_library(yul
 	optimiser/ReasoningBasedSimplifier.h
 	optimiser/RedundantAssignEliminator.cpp
 	optimiser/RedundantAssignEliminator.h
+	optimiser/RedundantStoreBase.cpp
+	optimiser/RedundantStoreBase.h
 	optimiser/Rematerialiser.cpp
 	optimiser/Rematerialiser.h
 	optimiser/SMTSolver.cpp

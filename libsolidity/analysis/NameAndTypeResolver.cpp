@@ -182,7 +182,13 @@ vector<Declaration const*> NameAndTypeResolver::nameFromCurrentScope(ASTString c
 Declaration const* NameAndTypeResolver::pathFromCurrentScope(vector<ASTString> const& _path) const
 {
 	solAssert(!_path.empty(), "");
-	vector<Declaration const*> candidates = m_currentScope->resolveName(_path.front(), true);
+	vector<Declaration const*> candidates = m_currentScope->resolveName(
+		_path.front(),
+		/* _recursive */ true,
+		/* _alsoInvisible */ false,
+		/* _onlyVisibleAsUnqualifiedNames */ true
+	);
+
 	for (size_t i = 1; i < _path.size() && candidates.size() == 1; i++)
 	{
 		if (!m_scopes.count(candidates.front()))
@@ -514,9 +520,9 @@ bool DeclarationRegistrationHelper::registerDeclaration(
 		Declaration const* conflictingDeclaration = _container.conflictingDeclaration(_declaration, _name);
 		solAssert(conflictingDeclaration, "");
 		bool const comparable =
-			_errorLocation->source &&
-			conflictingDeclaration->location().source &&
-			_errorLocation->source->name() == conflictingDeclaration->location().source->name();
+			_errorLocation->sourceName &&
+			conflictingDeclaration->location().sourceName &&
+			*_errorLocation->sourceName == *conflictingDeclaration->location().sourceName;
 		if (comparable && _errorLocation->start < conflictingDeclaration->location().start)
 		{
 			firstDeclarationLocation = *_errorLocation;
@@ -627,7 +633,10 @@ void DeclarationRegistrationHelper::enterNewSubScope(ASTNode& _subScope)
 		solAssert(dynamic_cast<SourceUnit const*>(&_subScope), "Unexpected scope type.");
 	else
 	{
-		bool newlyAdded = m_scopes.emplace(&_subScope, make_shared<DeclarationContainer>(m_currentScope, m_scopes[m_currentScope].get())).second;
+		bool newlyAdded = m_scopes.emplace(
+			&_subScope,
+			make_shared<DeclarationContainer>(m_currentScope, m_scopes[m_currentScope].get())
+		).second;
 		solAssert(newlyAdded, "Unable to add new scope.");
 	}
 	m_currentScope = &_subScope;

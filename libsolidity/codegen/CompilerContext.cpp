@@ -48,10 +48,7 @@
 #include <liblangutil/Scanner.h>
 #include <liblangutil/SourceReferenceFormatter.h>
 
-#include <boost/algorithm/string/replace.hpp>
-
 #include <utility>
-#include <numeric>
 
 // Change to "define" to output all intermediate code
 #undef SOL_OUTPUT_ASM
@@ -286,7 +283,11 @@ FunctionDefinition const& CompilerContext::superFunction(FunctionDefinition cons
 	solAssert(m_mostDerivedContract, "No most derived contract set.");
 	ContractDefinition const* super = _base.superContract(mostDerivedContract());
 	solAssert(super, "Super contract not available.");
-	return _function.resolveVirtual(mostDerivedContract(), super);
+
+	FunctionDefinition const& resolvedFunction = _function.resolveVirtual(mostDerivedContract(), super);
+	solAssert(resolvedFunction.isImplemented(), "");
+
+	return resolvedFunction;
 }
 
 ContractDefinition const& CompilerContext::mostDerivedContract() const
@@ -334,14 +335,7 @@ CompilerContext& CompilerContext::appendJump(evmasm::AssemblyItem::JumpType _jum
 
 CompilerContext& CompilerContext::appendPanic(util::PanicCode _code)
 {
-	Whiskers templ(R"({
-		mstore(0, <selector>)
-		mstore(4, <code>)
-		revert(0, 0x24)
-	})");
-	templ("selector", util::selectorFromSignature("Panic(uint256)").str());
-	templ("code", toCompactHexWithPrefix(static_cast<unsigned>(_code)));
-	appendInlineAssembly(templ.render());
+	callYulFunction(utilFunctions().panicFunction(_code), 0, 0);
 	return *this;
 }
 
@@ -417,6 +411,7 @@ void CompilerContext::appendInlineAssembly(
 		yul::AbstractAssembly& _assembly
 	)
 	{
+		solAssert(_context == yul::IdentifierContext::RValue || _context == yul::IdentifierContext::LValue, "");
 		auto it = std::find(_localVariables.begin(), _localVariables.end(), _identifier.name.str());
 		solAssert(it != _localVariables.end(), "");
 		auto stackDepth = static_cast<size_t>(distance(it, _localVariables.end()));
@@ -440,14 +435,14 @@ void CompilerContext::appendInlineAssembly(
 
 	ErrorList errors;
 	ErrorReporter errorReporter(errors);
-	auto scanner = make_shared<langutil::Scanner>(langutil::CharStream(_assembly, _sourceName));
+	langutil::CharStream charStream(_assembly, _sourceName);
 	yul::EVMDialect const& dialect = yul::EVMDialect::strictAssemblyForEVM(m_evmVersion);
 	optional<langutil::SourceLocation> locationOverride;
 	if (!_system)
 		locationOverride = m_asm->currentSourceLocation();
 	shared_ptr<yul::Block> parserResult =
 		yul::Parser(errorReporter, dialect, std::move(locationOverride))
-		.parse(scanner, false);
+		.parse(charStream);
 #ifdef SOL_OUTPUT_ASM
 	cout << yul::AsmPrinter(&dialect)(*parserResult) << endl;
 #endif
@@ -461,7 +456,9 @@ void CompilerContext::appendInlineAssembly(
 			_assembly + "\n"
 			"------------------ Errors: ----------------\n";
 		for (auto const& error: errorReporter.errors())
-			message += SourceReferenceFormatter::formatErrorInformation(*error);
+			// TODO if we have "locationOverride", it will be the wrong char stream,
+			// but we do not have access to the solidity scanner.
+			message += SourceReferenceFormatter::formatErrorInformation(*error, charStream);
 		message += "-------------------------------------------\n";
 
 		solAssert(false, message);
@@ -495,8 +492,8 @@ void CompilerContext::appendInlineAssembly(
 			solAssert(m_generatedYulUtilityCode.empty(), "");
 			m_generatedYulUtilityCode = yul::AsmPrinter(dialect)(*obj.code);
 			string code = yul::AsmPrinter{dialect}(*obj.code);
-			scanner = make_shared<langutil::Scanner>(langutil::CharStream(m_generatedYulUtilityCode, _sourceName));
-			obj.code = yul::Parser(errorReporter, dialect).parse(scanner, false);
+			langutil::CharStream charStream(m_generatedYulUtilityCode, _sourceName);
+			obj.code = yul::Parser(errorReporter, dialect).parse(charStream);
 			*obj.analysisInfo = yul::AsmAnalyzer::analyzeStrictAssertCorrect(dialect, obj);
 		}
 
@@ -524,7 +521,7 @@ void CompilerContext::appendInlineAssembly(
 		analysisInfo,
 		*m_asm,
 		m_evmVersion,
-		identifierAccess,
+		identifierAccess.generateCode,
 		_system,
 		_optimiserSettings.optimizeStackAllocation
 	);

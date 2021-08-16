@@ -22,7 +22,7 @@ raised, the previous highest bidder gets their money back.  After the end of
 the bidding period, the contract has to be called manually for the beneficiary
 to receive their money - contracts cannot activate themselves.
 
-::
+.. code-block:: solidity
 
     // SPDX-License-Identifier: GPL-3.0
     pragma solidity ^0.8.4;
@@ -79,7 +79,7 @@ to receive their money - contracts cannot activate themselves.
         /// together with this transaction.
         /// The value will only be refunded if the
         /// auction is not won.
-        function bid() public payable {
+        function bid() external payable {
             // No arguments are necessary, all
             // information is already part of
             // the transaction. The keyword payable
@@ -113,7 +113,7 @@ to receive their money - contracts cannot activate themselves.
         }
 
         /// Withdraw a bid that was overbid.
-        function withdraw() public returns (bool) {
+        function withdraw() external returns (bool) {
             uint amount = pendingReturns[msg.sender];
             if (amount > 0) {
                 // It is important to set this to zero because the recipient
@@ -132,7 +132,7 @@ to receive their money - contracts cannot activate themselves.
 
         /// End the auction and send the highest bid
         /// to the beneficiary.
-        function auctionEnd() public {
+        function auctionEnd() external {
             // It is a good guideline to structure functions that interact
             // with other contracts (i.e. they call functions or send Ether)
             // into three phases:
@@ -191,7 +191,8 @@ transfers): Bidders can confuse competition by placing several high or low
 invalid bids.
 
 
-::
+.. code-block:: solidity
+    :force:
 
     // SPDX-License-Identifier: GPL-3.0
     pragma solidity ^0.8.4;
@@ -260,7 +261,7 @@ invalid bids.
         /// still make the required deposit. The same address can
         /// place multiple bids.
         function bid(bytes32 _blindedBid)
-            public
+            external
             payable
             onlyBefore(biddingEnd)
         {
@@ -274,11 +275,11 @@ invalid bids.
         /// correctly blinded invalid bids and for all bids except for
         /// the totally highest.
         function reveal(
-            uint[] memory _values,
-            bool[] memory _fake,
-            bytes32[] memory _secret
+            uint[] calldata _values,
+            bool[] calldata _fake,
+            bytes32[] calldata _secret
         )
-            public
+            external
             onlyAfter(biddingEnd)
             onlyBefore(revealEnd)
         {
@@ -310,7 +311,7 @@ invalid bids.
         }
 
         /// Withdraw a bid that was overbid.
-        function withdraw() public {
+        function withdraw() external {
             uint amount = pendingReturns[msg.sender];
             if (amount > 0) {
                 // It is important to set this to zero because the recipient
@@ -326,7 +327,7 @@ invalid bids.
         /// End the auction and send the highest bid
         /// to the beneficiary.
         function auctionEnd()
-            public
+            external
             onlyAfter(revealEnd)
         {
             if (ended) revert AuctionEndAlreadyCalled();

@@ -19,7 +19,7 @@
 
 #include <libsolutil/AnsiColorized.h>
 
-#include <boost/algorithm/string/replace.hpp>
+#include <boost/algorithm/string.hpp>
 
 #include <optional>
 #include <stdexcept>
@@ -196,8 +196,6 @@ string TestFunctionCall::format(
 			}
 		}
 
-		stream << formatGasExpectations(_linePrefix, _renderMode == RenderMode::ExpectedValuesActualGas, _interactivePrint);
-
 		vector<string> sideEffects;
 		if (_renderMode == RenderMode::ExpectedValuesExpectedGas || _renderMode == RenderMode::ExpectedValuesActualGas)
 			sideEffects = m_call.expectedSideEffects;
@@ -214,6 +212,8 @@ string TestFunctionCall::format(
 					stream << std::endl;
 			}
 		}
+
+		stream << formatGasExpectations(_linePrefix, _renderMode == RenderMode::ExpectedValuesActualGas, _interactivePrint);
 	};
 
 	formatOutput(m_call.displayMode == FunctionCall::DisplayMode::SingleLine);

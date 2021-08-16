@@ -8,7 +8,7 @@ contract C
 	}
 	function g(uint x, uint[] memory c) public {
 		require(x < array2d.length);
-		f(array2d[x], c);
+		f(array2d[0], c);
 	}
 	function f(uint[] storage a, uint[] memory c) internal {
 		// Accesses are safe but oob is reported because of aliasing.

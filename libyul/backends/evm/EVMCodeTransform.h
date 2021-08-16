@@ -21,8 +21,6 @@
 
 #pragma once
 
-#include <libyul/backends/evm/EVMAssembly.h>
-
 #include <libyul/backends/evm/EVMDialect.h>
 #include <libyul/backends/evm/VariableReferenceCounter.h>
 #include <libyul/optimiser/ASTWalker.h>
@@ -41,7 +39,6 @@ namespace solidity::yul
 {
 
 struct AsmAnalysisInfo;
-class EVMAssembly;
 
 struct CodeTransformContext
 {
@@ -68,7 +65,7 @@ class CodeTransform
 {
 public:
 	/// Create the code transformer.
-	/// @param _identifierAccess used to resolve identifiers external to the inline assembly
+	/// @param _identifierAccessCodeGen used to generate code for identifiers external to the inline assembly
 	/// As a side-effect of its construction, translates the Yul code and appends it to the
 	/// given assembly.
 	/// Throws StackTooDeepError if a variable is not accessible or if a function has too
@@ -80,7 +77,7 @@ public:
 		EVMDialect const& _dialect,
 		BuiltinContext& _builtinContext,
 		bool _allowStackOpt = false,
-		ExternalIdentifierAccess const& _identifierAccess = ExternalIdentifierAccess(),
+		ExternalIdentifierAccess::CodeGenerator const& _identifierAccessCodeGen = {},
 		bool _useNamedLabelsForFunctions = false
 	): CodeTransform(
 		_assembly,
@@ -89,7 +86,7 @@ public:
 		_allowStackOpt,
 		_dialect,
 		_builtinContext,
-		_identifierAccess,
+		_identifierAccessCodeGen,
 		_useNamedLabelsForFunctions,
 		nullptr,
 		{},
@@ -110,7 +107,7 @@ protected:
 		bool _allowStackOpt,
 		EVMDialect const& _dialect,
 		BuiltinContext& _builtinContext,
-		ExternalIdentifierAccess _identifierAccess,
+		ExternalIdentifierAccess::CodeGenerator _identifierAccessCodeGen,
 		bool _useNamedLabelsForFunctions,
 		std::shared_ptr<Context> _context,
 		std::vector<TypedName> _delayedReturnVariables,
@@ -184,6 +181,10 @@ private:
 	{
 		return m_functionExitStackHeight.has_value();
 	}
+	bool isInsideFunction() const
+	{
+		return m_functionExitLabel.has_value();
+	}
 
 	AbstractAssembly& m_assembly;
 	AsmAnalysisInfo& m_info;
@@ -192,7 +193,7 @@ private:
 	BuiltinContext& m_builtinContext;
 	bool const m_allowStackOpt = true;
 	bool const m_useNamedLabelsForFunctions = false;
-	ExternalIdentifierAccess m_identifierAccess;
+	ExternalIdentifierAccess::CodeGenerator m_identifierAccessCodeGen;
 	std::shared_ptr<Context> m_context;
 
 	/// Set of variables whose reference counter has reached zero,

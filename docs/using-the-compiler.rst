@@ -2,7 +2,7 @@
 Using the Compiler
 ******************
 
-.. index:: ! commandline compiler, compiler;commandline, ! solc, ! linker
+.. index:: ! commandline compiler, compiler;commandline, ! solc
 
 .. _commandline-compiler:
 
@@ -30,16 +30,18 @@ set it to ``--optimize-runs=1``. If you expect many transactions and do not care
 output size, set ``--optimize-runs`` to a high number.
 This parameter has effects on the following (this might change in the future):
 
- - the size of the binary search in the function dispatch routine
- - the way constants like large numbers or strings are stored
+- the size of the binary search in the function dispatch routine
+- the way constants like large numbers or strings are stored
 
-Path Remapping
---------------
+.. index:: allowed paths, --allow-paths, base path, --base-path
+
+Base Path and Import Remapping
+------------------------------
 
 The commandline compiler will automatically read imported files from the filesystem, but
-it is also possible to provide path redirects using ``prefix=path`` in the following way:
+it is also possible to provide :ref:`path redirects <import-remapping>` using ``prefix=path`` in the following way:
 
-::
+.. code-block:: bash
 
     solc github.com/ethereum/dapp-bin/=/usr/local/lib/dapp-bin/ file.sol
 
@@ -49,19 +51,24 @@ This essentially instructs the compiler to search for anything starting with
 the remapping targets and outside of the directories where explicitly specified source
 files reside, so things like ``import "/etc/passwd";`` only work if you add ``/=/`` as a remapping.
 
-An empty remapping prefix is not allowed.
+When accessing the filesystem to search for imports, :ref:`paths that do not start with ./
+or ../ <relative-imports>` are treated as relative to the directory specified using
+``--base-path`` option (or the current working directory if base path is not specified).
+Furthermore, the part added via ``--base-path`` will not appear in the contract metadata.
 
-If there are multiple matches due to remappings, the one with the longest common prefix is selected.
-
-When accessing the filesystem to search for imports, all paths are treated as if they were fully qualified paths.
-This behaviour can be customized by adding the command line option ``--base-path`` with a path to be prepended
-before each filesystem access for imports is performed. Furthermore, the part added via ``--base-path``
-will not appear in the contract metadata.
-
-For security reasons the compiler has restrictions what directories it can access. Paths (and their subdirectories) of source files specified on the commandline and paths defined by remappings are allowed for import statements, but everything else is rejected. Additional paths (and their subdirectories) can be allowed via the ``--allow-paths /sample/path,/another/sample/path`` switch.
-
+For security reasons the compiler has restrictions on what directories it can access.
+Directories of source files specified on the command line and target paths of
+remappings are automatically allowed to be accessed by the file reader, but everything
+else is rejected by default.
+Additional paths (and their subdirectories) can be allowed via the
+``--allow-paths /sample/path,/another/sample/path`` switch.
 Everything inside the path specified via ``--base-path`` is always allowed.
 
+The above is only a simplification of how the compiler handles import paths.
+For a detailed explanation with examples and discussion of corner cases please refer to the section on
+:ref:`path resolution <path-resolution>`.
+
+.. index:: ! linker, ! --link, ! --libraries
 .. _library-linking:
 
 Library Linking
@@ -78,6 +85,8 @@ Either add ``--libraries "file.sol:Math=0x12345678901234567890123456789012345678
 
 .. note::
     Starting Solidity 0.8.1 accepts ``=`` as separator between library and address, and ``:`` as a separator is deprecated. It will be removed in the future. Currently ``--libraries "file.sol:Math:0x1234567890123456789012345678901234567890 file.sol:Heap:0xabCD567890123456789012345678901234567890"`` will work too.
+
+.. index:: --standard-json, --base-path
 
 If ``solc`` is called with the option ``--standard-json``, it will expect a JSON input (as explained below) on the standard input, and return a JSON output on the standard output. This is the recommended interface for more complex and especially automated uses. The process will always terminate in a "success" state and report any errors via the JSON output.
 The option ``--base-path`` is also processed in standard-json mode.
@@ -125,15 +134,15 @@ On the command line, you can select the EVM version as follows:
 In the :ref:`standard JSON interface <compiler-api>`, use the ``"evmVersion"``
 key in the ``"settings"`` field:
 
-.. code-block:: none
+.. code-block:: javascript
 
-  {
-    "sources": { ... },
-    "settings": {
-      "optimizer": { ... },
-      "evmVersion": "<VERSION>"
+    {
+      "sources": {/* ... */},
+      "settings": {
+        "optimizer": {/* ... */},
+        "evmVersion": "<VERSION>"
+      }
     }
-  }
 
 Target Options
 --------------
@@ -160,12 +169,15 @@ at each version. Backward compatibility is not guaranteed between each version.
    - The compiler behaves the same way as with constantinople.
 - ``istanbul``
    - Opcodes ``chainid`` and ``selfbalance`` are available in assembly.
-- ``berlin`` (**default**)
+- ``berlin``
    - Gas costs for ``SLOAD``, ``*CALL``, ``BALANCE``, ``EXT*`` and ``SELFDESTRUCT`` increased. The
      compiler assumes cold gas costs for such operations. This is relevant for gas estimation and
      the optimizer.
+- ``london`` (**default**)
+   - The block's base fee (`EIP-3198 <https://eips.ethereum.org/EIPS/eip-3198>`_ and `EIP-1559 <https://eips.ethereum.org/EIPS/eip-1559>`_) can be accessed via the global ``block.basefee`` or ``basefee()`` in inline assembly.
 
 
+.. index:: ! standard JSON, ! --standard-json
 .. _compiler-api:
 
 Compiler Input and Output JSON Description
@@ -188,7 +200,7 @@ Comments are of course not permitted and used here only for explanatory purposes
 Input Description
 -----------------
 
-.. code-block:: none
+.. code-block:: javascript
 
     {
       // Required: Source code language. Currently supported are "Solidity" and "Yul".
@@ -236,7 +248,10 @@ Input Description
         "remappings": [ ":g=/dir" ],
         // Optional: Optimizer settings
         "optimizer": {
-          // disabled by default
+          // Disabled by default.
+          // NOTE: enabled=false still leaves some optimizations on. See comments below.
+          // WARNING: Before version 0.8.6 omitting the 'enabled' key was not equivalent to setting
+          // it to false and would actually disable all the optimizations.
           "enabled": true,
           // Optimize for how many times you intend to run the code.
           // Lower values will optimize more for initial deployment cost, higher
@@ -297,7 +312,7 @@ Input Description
           // "debug" injects strings for compiler-generated internal reverts, implemented for ABI encoders V1 and V2 for now.
           // "verboseDebug" even appends further information to user-supplied revert strings (not yet implemented)
           "revertStrings": "default"
-        }
+        },
         // Metadata settings (optional)
         "metadata": {
           // Use only literal content and not URLs (false by default)
@@ -318,7 +333,7 @@ Input Description
           "myFile.sol": {
             "MyLib": "0x123123..."
           }
-        }
+        },
         // The following can be used to select desired outputs based
         // on file and contract names.
         // If this field is omitted, then the compiler loads and does type checking,
@@ -382,16 +397,28 @@ Input Description
         "modelChecker":
         {
           // Chose which contracts should be analyzed as the deployed one.
-          contracts:
+          "contracts":
           {
             "source1.sol": ["contract1"],
             "source2.sol": ["contract2", "contract3"]
           },
+          // Choose whether division and modulo operations should be replaced by
+          // multiplication with slack variables. Default is `true`.
+          // Using `false` here is recommended if you are using the CHC engine
+          // and not using Spacer as the Horn solver (using Eldarica, for example).
+          // See the Formal Verification section for a more detailed explanation of this option.
+          "divModWithSlacks": true,
           // Choose which model checker engine to use: all (default), bmc, chc, none.
           "engine": "chc",
+          // Choose whether to output all unproved targets. The default is `false`.
+          "showUnproved": true,
+          // Choose which solvers should be used, if available.
+          // See the Formal Verification section for the solvers description.
+          "solvers": ["cvc4", "smtlib2", "z3"],
           // Choose which targets should be checked: constantCondition,
           // underflow, overflow, divByZero, balance, assert, popEmptyArray, outOfBounds.
-          // If the option is not given all targets are checked by default.
+          // If the option is not given all targets are checked by default,
+          // except underflow/overflow for Solidity >=0.8.7.
           // See the Formal Verification section for the targets description.
           "targets": ["underflow", "overflow", "assert"],
           // Timeout for each SMT query in milliseconds.
@@ -407,7 +434,7 @@ Input Description
 Output Description
 ------------------
 
-.. code-block:: none
+.. code-block:: javascript
 
     {
       // Optional: not present if no errors/warnings were encountered
@@ -418,7 +445,7 @@ Output Description
             "file": "sourceFile.sol",
             "start": 0,
             "end": 100
-          ],
+          },
           // Optional: Further locations (e.g. places of conflicting declarations)
           "secondarySourceLocations": [
             {
@@ -450,7 +477,7 @@ Output Description
           // Identifier of the source (used in source maps)
           "id": 1,
           // The AST object
-          "ast": {},
+          "ast": {}
         }
       },
       // This contains the contract-level outputs.
@@ -463,7 +490,7 @@ Output Description
             // See https://docs.soliditylang.org/en/develop/abi-spec.html
             "abi": [],
             // See the Metadata Output documentation (serialised JSON string)
-            "metadata": "{...}",
+            "metadata": "{/* ... */}",
             // User documentation (natspec)
             "userdoc": {},
             // Developer documentation (natspec)
@@ -471,7 +498,7 @@ Output Description
             // Intermediate representation (string)
             "ir": "",
             // See the Storage Layout documentation.
-            "storageLayout": {"storage": [...], "types": {...} },
+            "storageLayout": {"storage": [/* ... */], "types": {/* ... */} },
             // EVM-related outputs
             "evm": {
               // Assembly (string)
@@ -501,14 +528,14 @@ Output Description
                 // contains a single Yul file.
                 "generatedSources": [{
                   // Yul AST
-                  "ast": { ... }
+                  "ast": {/* ... */},
                   // Source file in its text form (may contain comments)
                   "contents":"{ function abi_decode(start, end) -> data { data := calldataload(start) } }",
                   // Source file ID, used for source references, same "namespace" as the Solidity source files
                   "id": 2,
                   "language": "Yul",
                   "name": "#utility.yul"
-                }]
+                }],
                 // If given, this is an unlinked object.
                 "linkReferences": {
                   "libraryFile.sol": {
@@ -522,7 +549,7 @@ Output Description
                 }
               },
               "deployedBytecode": {
-                ..., // The same layout as above.
+                /* ..., */ // The same layout as above.
                 "immutableReferences": {
                   // There are two references to the immutable with AST ID 3, both 32 bytes long. One is
                   // at bytecode offset 42, the other at bytecode offset 80.
@@ -766,9 +793,9 @@ Running the Upgrade
 
 It is recommended to explicitly specify the upgrade modules by using ``--modules`` argument.
 
-.. code-block:: none
+.. code-block:: bash
 
-   $ solidity-upgrade --modules constructor-visibility,now,dotsyntax Source.sol
+    solidity-upgrade --modules constructor-visibility,now,dotsyntax Source.sol
 
 The command above applies all changes as shown below. Please review them carefully (the pragmas will
 have to be updated manually.)
